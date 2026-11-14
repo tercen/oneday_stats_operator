@@ -9,10 +9,13 @@ conditions, or patients × timepoints):
 
 ## Crosstab
 
+The same layout as Tercen's Wilcoxon Test operator, so it can stand in for one:
+
 | zone | what |
 |---|---|
-| rows | the unit tested, e.g. the population (`ds5.metacluster_id`) |
-| columns | the subject factor and the condition factor, e.g. `s.patient_id`, `s.group` |
+| rows × columns | the unit tested: one test per cell (e.g. rows = population; or rows = marker, columns = population) |
+| colors | the condition factor, e.g. `s.group` |
+| labels | the subject (pairing unit) factor, e.g. `s.patient_id` |
 | y | the value compared, e.g. the population's proportion of the sample |
 
 A subject missing a value for a condition drops out of that pair (missing is "not measured", not zero).
@@ -23,13 +26,12 @@ Fewer than 3 pairs, or fewer than 3 subjects × 3 conditions for Friedman, gives
 | name | default | |
 |---|---|---|
 | `reference_condition` | — | required for the paired tests |
-| `subject_factor`, `condition_factor` | first / second column factor | |
 | `tests` | `paired and friedman` | or one of them |
 | `alpha` | 0.05 | threshold on the adjusted p-value for `significant` |
 
 ## Output
 
-Two tables joined on the row:
+Two tables joined on (.ri, .ci), each BH-adjusted across all its rows:
 - **paired:** `comparison`, `n_pairs`, `median_diff`, `statistic` (W), `p.value`, `p_adjusted`,
   `neglog10_p_adjusted`, `significant`;
 - **friedman:** `n_subjects`, `k_conditions`, `statistic` (chi²), `p.value`, `p_adjusted`,

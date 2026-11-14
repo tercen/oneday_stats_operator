@@ -1,16 +1,18 @@
 """oneday stats: paired tests for subjects measured under several conditions (one acquisition).
 
-Crosstab
-  rows     the unit tested, e.g. the population (one test family row per row)
-  columns  the subject factor and the condition factor (e.g. s.patient_id, s.group)
-  y        the value compared, e.g. a population's proportion of the sample
-Two tables come back, joined on the row:
+Crosstab (the convention of Tercen's Wilcoxon Test operator, so it can replace one in place)
+  rows x columns  the unit tested: one test per (row, column) cell, e.g. rows = population, or
+                  rows = marker and columns = population
+  colors          the condition factor (e.g. s.group)
+  labels          the subject factor, the pairing unit (e.g. s.patient_id)
+  y               the value compared, e.g. a population's proportion of the sample
+Two tables come back, joined on (.ri, .ci):
   paired:   one row per condition other than the reference: comparison, n_pairs, median_diff, statistic,
             p.value, p_adjusted, neglog10_p_adjusted, significant
   friedman: one row: n_subjects, k_conditions, statistic, p.value, p_adjusted, neglog10_p_adjusted, significant
+Each table is Benjamini-Hochberg adjusted across all its rows (every cell and comparison of the step).
 """
 import numpy as np
-import pandas as pd
 from tercen.client import context as ctx
 
 from oneday_stats.stats import friedman, paired_vs_reference
@@ -26,44 +28,37 @@ def prop(name, default):
     return default if v is None or v == "" else v
 
 
-cnames = [c for c in tc.cnames if c]
-if len(cnames) < 2:
-    raise ValueError("Put the subject factor and the condition factor on columns (two column factors).")
-subject_f = prop("subject_factor", "") or cnames[0]
-condition_f = prop("condition_factor", "") or cnames[1]
-for f in (subject_f, condition_f):
-    if f not in cnames:
-        raise ValueError(f"{f!r} is not a column factor; column factors are {cnames}")
+if len(tc.colors) != 1 or len(tc.labels) != 1:
+    raise ValueError("Put the condition factor on colors and the subject (pairing) factor on labels, one each.")
+condition_f, subject_f = tc.colors[0], tc.labels[0]
 reference = prop("reference_condition", "")
 alpha = float(prop("alpha", 0.05))
 tests = prop("tests", "paired and friedman")
 
-cols = tc.cselect([subject_f, condition_f], df_lib="pandas")
-cols.columns = ["subject", "condition"]
-cols[".ci"] = np.arange(len(cols), dtype=np.int32)
-y = tc.select([".ri", ".ci", ".y"], df_lib="pandas")
-long = (y.merge(cols, on=".ci")
-         .rename(columns={".ri": "cluster", ".y": "value"})[["cluster", "subject", "condition", "value"]])
-long["subject"] = long["subject"].astype(str)
-long["condition"] = long["condition"].astype(str)
+df = tc.select([".ri", ".ci", ".y", condition_f, subject_f], df_lib="pandas")
+df = df.rename(columns={".y": "value", condition_f: "condition", subject_f: "subject"})
+df["condition"] = df["condition"].astype(str)
+df["subject"] = df["subject"].astype(str)
+df["cluster"] = df[".ri"].astype(np.int64) * 1_000_000_000 + df[".ci"].astype(np.int64)  # one unit per cell
 
-if not reference:
-    levels = sorted(long["condition"].unique())
-    raise ValueError(f"Set reference_condition to one of {levels}")
+if not reference and tests != "friedman":
+    raise ValueError(f"Set reference_condition to one of {sorted(df['condition'].unique())}")
 
 
-def finish(df, stat_col):
-    out = df.rename(columns={"cluster": ".ri", stat_col: "statistic", "p": "p.value", "q": "p_adjusted"})
-    out[".ri"] = out[".ri"].astype(np.int32)
-    out["neglog10_p_adjusted"] = -np.log10(out["p_adjusted"].clip(lower=1e-300))
-    out["significant"] = out["sig"].astype(float)
-    out = out.drop(columns=["sig"])
+def finish(res, stat_col):
+    out = res.rename(columns={stat_col: "statistic", "p": "p.value", "q": "p_adjusted"})
+    cell = out.pop("cluster").astype(np.int64)
+    out.insert(0, ".ri", (cell // 1_000_000_000).astype(np.int32))
+    out.insert(1, ".ci", (cell % 1_000_000_000).astype(np.int32))
+    out["neglog10_p_adjusted"] = -np.log10(out["p_adjusted"].astype(float).clip(lower=1e-300))
+    out["significant"] = out.pop("sig").astype(float)
     for c in out.columns:
-        if c not in (".ri", "comparison"):
+        if c not in (".ri", ".ci", "comparison"):
             out[c] = out[c].astype(float)
     return tc.add_namespace(out)
 
 
+long = df[["cluster", "subject", "condition", "value"]]
 tables = []
 if tests in ("paired and friedman", "paired"):
     tables.append(finish(paired_vs_reference(long, reference, alpha), "W"))
