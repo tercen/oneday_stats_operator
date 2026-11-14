@@ -1,0 +1,15 @@
+{
+  "name": "oneday stats",
+  "description": "Paired tests for subjects measured under several conditions in one acquisition: paired Wilcoxon signed-rank of each condition against a reference condition, and the Friedman test across all conditions, each Benjamini-Hochberg adjusted. Rows: the unit tested (e.g. population). Columns: subject and condition factors. Y: the value (e.g. proportion).",
+  "tags": ["statistics", "paired", "wilcoxon", "friedman", "cytometry"],
+  "authors": ["tercen"],
+  "urls": ["https://github.com/tercen/oneday_stats_operator"],
+  "container": "ghcr.io/tercen/oneday_stats_operator",
+  "properties": [
+    {"kind": "StringProperty", "name": "reference_condition", "defaultValue": "", "description": "Condition every other condition is compared with (e.g. DMSO, BL). Required for the paired tests."},
+    {"kind": "StringProperty", "name": "subject_factor", "defaultValue": "", "description": "Column factor naming the subject (the pairing unit). Empty: the first column factor."},
+    {"kind": "StringProperty", "name": "condition_factor", "defaultValue": "", "description": "Column factor naming the condition. Empty: the second column factor."},
+    {"kind": "EnumeratedProperty", "name": "tests", "defaultValue": "paired and friedman", "values": ["paired and friedman", "paired", "friedman"], "description": "Which tests to run."},
+    {"kind": "DoubleProperty", "name": "alpha", "defaultValue": 0.05, "description": "Adjusted p-value below which a row is marked significant."}
+  ]
+}

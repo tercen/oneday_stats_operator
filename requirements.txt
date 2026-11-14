@@ -1,0 +1,10 @@
+# Pinned: the paired tests' results depend on the scipy version (e.g. all-zero differences).
+numpy==2.5.2
+pandas==3.0.5
+scipy==1.18.1
+# tercen_python_client's own runtime deps (the client is installed with --no-deps: its setup.py pins
+# numpy 1.22 / pandas 2.1 / scipy 1.11, which would override the pins above)
+python-dateutil
+pytz
+polars
+pytson @ git+https://github.com/tercen/pytson@1.8.10
