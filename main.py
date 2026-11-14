@@ -55,6 +55,9 @@ def finish(res, stat_col):
     for c in out.columns:
         if c not in (".ri", ".ci", "comparison"):
             out[c] = out[c].astype(float)
+    if "comparison" in out.columns:
+        # pandas 3 stores strings as a StringArray, which the client's TSON encoder rejects ("Unknown object type")
+        out["comparison"] = out["comparison"].astype(object)
     return tc.add_namespace(out)
 
 

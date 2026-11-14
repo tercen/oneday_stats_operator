@@ -84,3 +84,16 @@ def test_friedman_only_needs_no_reference(monkeypatch):
 def test_needs_one_color_and_one_label(monkeypatch):
     with pytest.raises(ValueError, match="colors"):
         run(StubCtx(crosstab(), {"reference_condition": "BL"}, labels=()), monkeypatch)
+
+
+def test_tables_serialise_with_the_real_client(monkeypatch):
+    """Regression: pandas 3 string columns broke TSON encoding on Studio (TsonError: Unknown object type)."""
+    tsu = pytest.importorskip("tercen.util.helper_functions")
+    from tercen.http.HttpClientService import encodeTSON
+    from tercen.model.impl import OperatorResult
+    stub = StubCtx(crosstab(), {"reference_condition": "BL"})
+    tables = run(stub, monkeypatch)
+    monkeypatch.undo()
+    r = OperatorResult()
+    r.tables = [tsu.dataframe_to_table(t)[0] for t in tables]
+    assert len(encodeTSON(r.toJson())) > 0
